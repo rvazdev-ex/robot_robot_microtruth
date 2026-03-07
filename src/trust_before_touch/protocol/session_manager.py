@@ -1,13 +1,19 @@
+"""Session manager: orchestrates both real-time control and PCS verification."""
+
+from __future__ import annotations
+
 import asyncio
 from collections import defaultdict
 from typing import Any
 from uuid import uuid4
 
 from trust_before_touch.config import AppConfig
-from trust_before_touch.constants import AttackMode, ChallengeType, SessionState
-from trust_before_touch.hardware.factory import create_adapters
+from trust_before_touch.constants import AttackMode, ChallengeType, ControlMode, SessionState
+from trust_before_touch.control.loop import RealtimeControlLoop
+from trust_before_touch.hardware.factory import create_adapters, create_realtime_hardware
 from trust_before_touch.models.events import SessionEvent
 from trust_before_touch.models.protocol import ScoreBreakdown, Session
+from trust_before_touch.models.robot import RobotState
 from trust_before_touch.persistence.repository import SessionRepository
 from trust_before_touch.scoring.trust import TrustScorer
 from trust_before_touch.state_machine import SessionStateMachine
@@ -21,6 +27,67 @@ class SessionManager:
             config.scoring_weights(), config.pass_threshold, config.borderline_threshold
         )
         self._listeners: dict[str, list[Any]] = defaultdict(list)
+        self._telemetry_listeners: list[Any] = []
+
+        # Real-time control
+        self._control_loop: RealtimeControlLoop | None = None
+
+    # -- Real-time control API -----------------------------------------------
+
+    @property
+    def control_loop(self) -> RealtimeControlLoop | None:
+        return self._control_loop
+
+    async def start_control(self, mode: ControlMode = ControlMode.TELEOPERATION) -> RobotState:
+        """Connect hardware and start the real-time control loop."""
+        leader, followers, camera = create_realtime_hardware(self.config)
+        self._control_loop = RealtimeControlLoop(
+            self.config, leader, followers, camera
+        )
+        self._control_loop.on_telemetry(self._broadcast_telemetry)
+        await self._control_loop.connect_all()
+        await self._control_loop.start(mode)
+        return self._control_loop.latest_state
+
+    async def stop_control(self) -> RobotState | None:
+        """Stop the control loop and disconnect hardware."""
+        if self._control_loop is None:
+            return None
+        state = self._control_loop.latest_state
+        await self._control_loop.stop()
+        await self._control_loop.disconnect_all()
+        self._control_loop = None
+        return state
+
+    def get_robot_state(self) -> RobotState:
+        """Get the latest aggregated robot state."""
+        if self._control_loop is not None:
+            return self._control_loop.latest_state
+        return RobotState()
+
+    def register_telemetry_ws(self, ws: Any) -> None:
+        self._telemetry_listeners.append(ws)
+
+    def unregister_telemetry_ws(self, ws: Any) -> None:
+        if ws in self._telemetry_listeners:
+            self._telemetry_listeners.remove(ws)
+
+    async def _broadcast_telemetry(self, state: RobotState) -> None:
+        """Push real-time telemetry to all registered WebSocket clients."""
+        dead: list[Any] = []
+        payload = state.model_dump(mode="json")
+        # Strip camera frame data to reduce bandwidth (send separately if needed)
+        if "camera_frame" in payload and payload["camera_frame"] is not None:
+            payload["camera_frame"].pop("data_b64", None)
+        for ws in self._telemetry_listeners:
+            try:
+                await ws.send_json({"event_type": "telemetry", "payload": payload})
+            except (RuntimeError, Exception):
+                dead.append(ws)
+        for ws in dead:
+            self._telemetry_listeners.remove(ws)
+
+    # -- PCS session management (existing) -----------------------------------
 
     async def broadcast(self, session_id: str, event: SessionEvent) -> None:
         dead: list[Any] = []

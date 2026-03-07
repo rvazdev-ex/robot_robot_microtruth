@@ -2,94 +2,311 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Trust Before Touch SO-101</title>
+    <title>SO-101 Real-Time Robot Control</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 2rem; }
-      pre { background: #f4f4f4; padding: 1rem; border-radius: 8px; }
-      button { margin-right: 0.5rem; margin-bottom: 0.5rem; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; color: #e0e0e0; }
+
+      .header { background: #16213e; padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; border-bottom: 2px solid #0f3460; }
+      .header h1 { font-size: 1.4rem; color: #e94560; }
+      .header .status { margin-left: auto; padding: 0.3rem 0.8rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600; }
+      .status-idle { background: #444; }
+      .status-active { background: #2ecc71; color: #000; }
+      .status-error { background: #e74c3c; }
+
+      .main { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem 2rem; max-width: 1400px; margin: 0 auto; }
+      .full-width { grid-column: 1 / -1; }
+
+      .card { background: #16213e; border-radius: 8px; padding: 1rem; border: 1px solid #0f3460; }
+      .card h2 { font-size: 1rem; color: #e94560; margin-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+
+      .controls { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      .btn { padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.2s; }
+      .btn-primary { background: #e94560; color: #fff; }
+      .btn-primary:hover { background: #c0392b; }
+      .btn-secondary { background: #0f3460; color: #e0e0e0; }
+      .btn-secondary:hover { background: #1a4a8a; }
+      .btn-danger { background: #e74c3c; color: #fff; }
+      .btn-danger:hover { background: #c0392b; }
+      .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      /* Joint bars */
+      .joint-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; }
+      .joint-row { display: flex; align-items: center; gap: 0.5rem; }
+      .joint-label { font-size: 0.75rem; color: #888; width: 90px; text-align: right; white-space: nowrap; }
+      .joint-bar-wrap { flex: 1; height: 18px; background: #0d1b2a; border-radius: 9px; position: relative; overflow: hidden; min-width: 80px; }
+      .joint-bar { position: absolute; top: 2px; height: 14px; border-radius: 7px; transition: left 0.08s, width 0.08s; min-width: 6px; }
+      .joint-val { font-size: 0.75rem; width: 60px; text-align: left; font-family: monospace; }
+
+      .arm-section { margin-bottom: 0.8rem; }
+      .arm-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.4rem; padding: 0.2rem 0.5rem; border-radius: 4px; display: inline-block; }
+      .arm-leader { background: #e94560; color: #fff; }
+      .arm-follower-l { background: #2196F3; color: #fff; }
+      .arm-follower-r { background: #4CAF50; color: #fff; }
+
+      /* Stats */
+      .stats { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+      .stat { text-align: center; }
+      .stat-value { font-size: 1.5rem; font-weight: 700; font-family: monospace; }
+      .stat-label { font-size: 0.7rem; color: #888; text-transform: uppercase; }
+      .stat-good { color: #2ecc71; }
+      .stat-warn { color: #f39c12; }
+      .stat-bad { color: #e74c3c; }
+
+      /* Event log */
+      .event-log { max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.75rem; background: #0d1b2a; padding: 0.5rem; border-radius: 4px; }
+      .event-log div { padding: 0.15rem 0; border-bottom: 1px solid #1a1a2e; }
+      .event-log .ts { color: #666; }
+
+      /* PCS section */
+      .pcs-section { border-top: 2px solid #0f3460; padding-top: 1rem; margin-top: 1rem; }
+      pre { background: #0d1b2a; padding: 0.8rem; border-radius: 6px; font-size: 0.8rem; overflow-x: auto; max-height: 300px; }
     </style>
   </head>
   <body>
-    <h1>Trust Before Touch (Simulation)</h1>
-    <div>
-      <button onclick="createSession('normal')">Create Normal Session</button>
-      <button onclick="createSession('replay')">Create Replay Attack Session</button>
-      <button onclick="createSession('delay')">Create Delay Attack Session</button>
+
+    <div class="header">
+      <h1>SO-101 Real-Time Control</h1>
+      <span>3-Arm LeRobot Teleoperation</span>
+      <div id="connStatus" class="status status-idle">Disconnected</div>
     </div>
-    <div>
-      <button onclick="step('claim')">Claim</button>
-      <button onclick="step('challenge')">Challenge</button>
-      <button onclick="step('execute')">Execute</button>
-      <button onclick="step('verify')">Verify</button>
-    </div>
-    <p><strong>Session:</strong> <span id="session"></span></p>
-    <p><strong>State:</strong> <span id="state">idle</span></p>
-    <h3>Current Session Data</h3>
-    <pre id="sessionData">{}</pre>
-    <h3>Robot Movement</h3>
-    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
-      <span>Position:</span>
-      <div id="posTrack" style="position:relative;width:300px;height:24px;background:#e0e0e0;border-radius:12px;overflow:hidden;">
-        <div id="posBar" style="position:absolute;left:140px;top:2px;width:20px;height:20px;background:#2196F3;border-radius:50%;transition:left 0.1s;"></div>
+
+    <div class="main">
+
+      <!-- Control Panel -->
+      <div class="card">
+        <h2>Control</h2>
+        <div class="controls" style="margin-bottom:1rem;">
+          <button class="btn btn-primary" onclick="startControl('teleoperation')">Start Teleoperation</button>
+          <button class="btn btn-secondary" onclick="startControl('recording')">Start Recording</button>
+          <button class="btn btn-danger" onclick="stopControl()">Stop</button>
+        </div>
+        <div class="stats" id="loopStats">
+          <div class="stat">
+            <div class="stat-value" id="loopHz">--</div>
+            <div class="stat-label">Control Hz</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="loopDt">--</div>
+            <div class="stat-label">Loop dt (ms)</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="controlMode">IDLE</div>
+            <div class="stat-label">Mode</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="backendType">--</div>
+            <div class="stat-label">Backend</div>
+          </div>
+        </div>
       </div>
-      <span id="posValue">--</span>
-      <span id="moveStep" style="color:#888;"></span>
+
+      <!-- Event Log -->
+      <div class="card">
+        <h2>Event Log</h2>
+        <div class="event-log" id="eventLog">
+          <div><span class="ts">--:--:--</span> Waiting for connection...</div>
+        </div>
+      </div>
+
+      <!-- Joint Visualization - Full Width -->
+      <div class="card full-width">
+        <h2>Real-Time Joint Positions (6-DOF per arm)</h2>
+        <div id="jointViz">
+          <div class="arm-section">
+            <span class="arm-title arm-leader">Leader</span>
+            <div class="joint-grid" id="joints-leader"></div>
+          </div>
+          <div class="arm-section">
+            <span class="arm-title arm-follower-l">Follower Left (Camera)</span>
+            <div class="joint-grid" id="joints-follower_left"></div>
+          </div>
+          <div class="arm-section">
+            <span class="arm-title arm-follower-r">Follower Right</span>
+            <div class="joint-grid" id="joints-follower_right"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PCS Verification -->
+      <div class="card full-width pcs-section">
+        <h2>PCS Verification Sessions</h2>
+        <div class="controls" style="margin-bottom:0.8rem;">
+          <button class="btn btn-secondary" onclick="createSession('normal')">Normal Session</button>
+          <button class="btn btn-secondary" onclick="createSession('replay')">Replay Attack</button>
+          <button class="btn btn-secondary" onclick="createSession('delay')">Delay Attack</button>
+          <span style="margin:0 0.5rem;color:#666;">|</span>
+          <button class="btn btn-secondary" onclick="pcsStep('claim')">Claim</button>
+          <button class="btn btn-secondary" onclick="pcsStep('challenge')">Challenge</button>
+          <button class="btn btn-secondary" onclick="pcsStep('execute')">Execute</button>
+          <button class="btn btn-secondary" onclick="pcsStep('verify')">Verify</button>
+        </div>
+        <p style="font-size:0.85rem;margin-bottom:0.5rem;">
+          <strong>Session:</strong> <span id="pcsSession">--</span>
+          &nbsp; <strong>State:</strong> <span id="pcsState">idle</span>
+        </p>
+        <pre id="pcsData">{}</pre>
+      </div>
+
     </div>
-    <h3>Event Stream</h3>
-    <pre id="events">[]</pre>
+
     <script>
-      let sid = null;
-      let ws = null;
-      const events = [];
+      const JOINT_NAMES = ['shoulder_pan', 'shoulder_lift', 'elbow_flex', 'wrist_flex', 'wrist_roll', 'gripper'];
+      const JOINT_RANGE = 180; // degrees from center
+      const ARM_COLORS = { leader: '#e94560', follower_left: '#2196F3', follower_right: '#4CAF50' };
 
-      function render(objId, data) {
-        document.getElementById(objId).textContent = JSON.stringify(data, null, 2);
+      let telemetryWs = null;
+      let pcsWs = null;
+      let pcsSid = null;
+      const eventLog = [];
+
+      // Initialize joint bar HTML
+      function initJointBars() {
+        ['leader', 'follower_left', 'follower_right'].forEach(arm => {
+          const container = document.getElementById(`joints-${arm}`);
+          container.innerHTML = '';
+          JOINT_NAMES.forEach((name, i) => {
+            const row = document.createElement('div');
+            row.className = 'joint-row';
+            row.innerHTML = `
+              <span class="joint-label">${name.replace('_', ' ')}</span>
+              <div class="joint-bar-wrap">
+                <div class="joint-bar" id="bar-${arm}-${i}" style="background:${ARM_COLORS[arm]};left:50%;width:6px;"></div>
+              </div>
+              <span class="joint-val" id="val-${arm}-${i}">0.0</span>`;
+            container.appendChild(row);
+          });
+        });
       }
 
-      function updateRobotPosition(payload) {
-        const pos = payload.position;
-        const pct = ((pos + 1) / 2) * 100;
-        const track = document.getElementById('posTrack');
-        const bar = document.getElementById('posBar');
-        const maxLeft = track.clientWidth - bar.clientWidth;
-        bar.style.left = Math.round((pct / 100) * maxLeft) + 'px';
-        document.getElementById('posValue').textContent = pos.toFixed(3);
-        document.getElementById('moveStep').textContent =
-          'step ' + (payload.step + 1) + '/' + payload.total_steps;
+      function updateJointBar(arm, idx, value) {
+        const bar = document.getElementById(`bar-${arm}-${idx}`);
+        const val = document.getElementById(`val-${arm}-${idx}`);
+        if (!bar || !val) return;
+
+        const pct = ((value + JOINT_RANGE) / (2 * JOINT_RANGE)) * 100;
+        const clampedPct = Math.max(0, Math.min(100, pct));
+        const parent = bar.parentElement;
+        const pw = parent.clientWidth || 100;
+        const center = pw / 2;
+        const pos = (clampedPct / 100) * pw;
+        const left = Math.min(center, pos);
+        const width = Math.abs(pos - center);
+
+        bar.style.left = left + 'px';
+        bar.style.width = Math.max(6, width) + 'px';
+        val.textContent = value.toFixed(1);
       }
 
-      async function createSession(mode) {
-        const r = await fetch('/sessions', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({attack_mode: mode})});
-        const s = await r.json();
-        sid = s.session_id;
-        document.getElementById('session').textContent = sid;
-        document.getElementById('state').textContent = s.state;
-        render('sessionData', s);
-        connectWs();
+      function updateArmJoints(armName, jointState) {
+        if (!jointState || !jointState.positions) return;
+        jointState.positions.forEach((pos, i) => {
+          updateJointBar(armName, i, pos);
+        });
       }
 
-      async function step(action) {
-        if (!sid) return;
-        const body = action === 'claim' ? {message:'prover ready for handoff'} : {};
-        const r = await fetch(`/sessions/${sid}/${action}`, {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
-        const s = await r.json();
-        document.getElementById('state').textContent = s.state;
-        render('sessionData', s);
+      function addEvent(msg) {
+        const now = new Date().toLocaleTimeString();
+        eventLog.unshift({ ts: now, msg });
+        if (eventLog.length > 50) eventLog.pop();
+        const el = document.getElementById('eventLog');
+        el.innerHTML = eventLog.map(e => `<div><span class="ts">${e.ts}</span> ${e.msg}</div>`).join('');
       }
 
-      function connectWs() {
-        if (ws) ws.close();
-        ws = new WebSocket(`ws://${location.host}/ws/sessions/${sid}`);
-        ws.onopen = () => ws.send('subscribe');
-        ws.onmessage = (msg) => {
+      // Telemetry WebSocket
+      function connectTelemetry() {
+        if (telemetryWs) telemetryWs.close();
+        telemetryWs = new WebSocket(`ws://${location.host}/ws/telemetry`);
+
+        telemetryWs.onopen = () => {
+          telemetryWs.send('subscribe');
+          document.getElementById('connStatus').textContent = 'Connected';
+          document.getElementById('connStatus').className = 'status status-active';
+          addEvent('Telemetry WebSocket connected');
+        };
+
+        telemetryWs.onmessage = (msg) => {
           const evt = JSON.parse(msg.data);
-          if (evt.event_type === 'robot_moving') {
-            updateRobotPosition(evt.payload);
+          if (evt.event_type === 'connected') {
+            document.getElementById('backendType').textContent = evt.backend || '--';
+            addEvent(`Backend: ${evt.backend}, Control: ${evt.control_frequency_hz}Hz`);
+            return;
           }
-          events.push(evt);
-          render('events', events);
+          if (evt.event_type === 'telemetry' && evt.payload) {
+            const s = evt.payload;
+
+            // Update joint visualizations
+            if (s.leader) updateArmJoints('leader', s.leader.joint_state);
+            if (s.follower_left) updateArmJoints('follower_left', s.follower_left.joint_state);
+            if (s.follower_right) updateArmJoints('follower_right', s.follower_right.joint_state);
+
+            // Update stats
+            const hz = s.control_frequency_hz || 0;
+            const hzEl = document.getElementById('loopHz');
+            hzEl.textContent = hz.toFixed(1);
+            hzEl.className = 'stat-value ' + (hz > 25 ? 'stat-good' : hz > 15 ? 'stat-warn' : 'stat-bad');
+            document.getElementById('loopDt').textContent = (s.loop_dt_ms || 0).toFixed(1);
+            document.getElementById('controlMode').textContent = s.control_active ? 'ACTIVE' : 'IDLE';
+          }
+        };
+
+        telemetryWs.onclose = () => {
+          document.getElementById('connStatus').textContent = 'Disconnected';
+          document.getElementById('connStatus').className = 'status status-idle';
+          addEvent('Telemetry WebSocket disconnected');
         };
       }
+
+      async function startControl(mode) {
+        addEvent(`Starting control: ${mode}`);
+        const r = await fetch(`/control/start?mode=${mode}`, { method: 'POST' });
+        const data = await r.json();
+        addEvent(`Control started: ${JSON.stringify(data.status)}`);
+        if (!telemetryWs || telemetryWs.readyState !== WebSocket.OPEN) {
+          connectTelemetry();
+        }
+      }
+
+      async function stopControl() {
+        addEvent('Stopping control...');
+        const r = await fetch('/control/stop', { method: 'POST' });
+        const data = await r.json();
+        addEvent(`Control stopped`);
+        document.getElementById('controlMode').textContent = 'IDLE';
+      }
+
+      // PCS Session
+      async function createSession(mode) {
+        const r = await fetch('/sessions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ attack_mode: mode })
+        });
+        const s = await r.json();
+        pcsSid = s.session_id;
+        document.getElementById('pcsSession').textContent = pcsSid;
+        document.getElementById('pcsState').textContent = s.state;
+        document.getElementById('pcsData').textContent = JSON.stringify(s, null, 2);
+        addEvent(`PCS session created: ${mode}`);
+      }
+
+      async function pcsStep(action) {
+        if (!pcsSid) return;
+        const body = action === 'claim' ? { message: 'prover ready for handoff' } : {};
+        const r = await fetch(`/sessions/${pcsSid}/${action}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const s = await r.json();
+        document.getElementById('pcsState').textContent = s.state || '--';
+        document.getElementById('pcsData').textContent = JSON.stringify(s, null, 2);
+        addEvent(`PCS ${action}: ${s.state || 'done'}`);
+      }
+
+      // Init
+      initJointBars();
+      connectTelemetry();
     </script>
   </body>
 </html>
