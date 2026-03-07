@@ -114,6 +114,46 @@ def _resolve_feetech_bus_class() -> type[Any]:
     )
 
 
+def _resolve_motors_bus_motor_class() -> type[Any] | None:
+    """Resolve optional Motor model class used by newer LeRobot versions."""
+    motors_bus_mod = _try_import_any(
+        [
+            "lerobot.motors.motors_bus",
+            "lerobot.common.robot_devices.motors.motors_bus",
+            "lerobot.robot_devices.motors.motors_bus",
+        ]
+    )
+    motor_class = getattr(motors_bus_mod, "Motor", None)
+    if motor_class is None:
+        return None
+    return cast(type[Any], motor_class)
+
+
+def _build_feetech_motors(
+    motors: dict[int, str],
+    motor_model: str,
+    *,
+    use_motor_model_objects: bool,
+) -> dict[str, Any]:
+    """Build motors payload compatible with older and newer LeRobot APIs."""
+    if not use_motor_model_objects:
+        return {
+            name: (motor_model, motor_id)
+            for motor_id, name in motors.items()
+        }
+
+    motor_class = _resolve_motors_bus_motor_class()
+    if motor_class is None:
+        raise LeRobotUnavailableError(
+            "LeRobot motors bus module is installed but missing `Motor` class."
+        )
+
+    return {
+        name: motor_class(id=motor_id, model=motor_model)
+        for motor_id, name in motors.items()
+    }
+
+
 # ---------------------------------------------------------------------------
 # Real-time arm adapter using Feetech motors bus
 # ---------------------------------------------------------------------------
@@ -151,10 +191,28 @@ class SO101Arm(RobotArm):
         if self._connected:
             return
         feetech_bus_cls = _resolve_feetech_bus_class()
-        self._bus = feetech_bus_cls(
-            port=self._port,
-            motors={name: (self._motor_model, motor_id) for motor_id, name in self._motors.items()},
+        motors_payload = _build_feetech_motors(
+            self._motors,
+            self._motor_model,
+            use_motor_model_objects=False,
         )
+        try:
+            self._bus = feetech_bus_cls(
+                port=self._port,
+                motors=motors_payload,
+            )
+        except AttributeError as exc:
+            if "has no attribute 'id'" not in str(exc):
+                raise
+            motors_payload = _build_feetech_motors(
+                self._motors,
+                self._motor_model,
+                use_motor_model_objects=True,
+            )
+            self._bus = feetech_bus_cls(
+                port=self._port,
+                motors=motors_payload,
+            )
         self._bus.connect()
         self._connected = True
         logger.info("Connected arm '%s' on %s", self._name, self._port)
