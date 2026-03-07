@@ -37,3 +37,13 @@ class AttackMode(StrEnum):
 class RuntimeBackend(StrEnum):
     SIMULATION = "simulation"
     LEROBOT = "lerobot"
+
+
+class ControlMode(StrEnum):
+    """Real-time control modes for the robot system."""
+
+    TELEOPERATION = "teleoperation"  # Leader arm drives follower(s) in real-time
+    IDLE = "idle"                    # Arms connected but not actively controlled
+    RECORDING = "recording"         # Recording trajectories for replay/training
+    REPLAYING = "replaying"         # Replaying a recorded trajectory
+    VERIFICATION = "verification"   # Running a PCS verification challenge

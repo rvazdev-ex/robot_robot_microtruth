@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from trust_before_touch.api.app import create_app
 from trust_before_touch.config import AppConfig
 from trust_before_touch.constants import AttackMode, RuntimeBackend
-from trust_before_touch.hardware.factory import create_adapters
+from trust_before_touch.hardware.factory import create_adapters, create_realtime_hardware
 
 
 def test_default_backend_is_simulation() -> None:
@@ -21,6 +21,14 @@ def test_factory_returns_simulation_adapters() -> None:
     assert leader.__class__.__name__ == "SimLeaderArm"
     assert prover.__class__.__name__ == "SimProverArm"
     assert verifier.__class__.__name__ == "SimVerifierArm"
+
+
+def test_realtime_factory_returns_sim_arms() -> None:
+    config = AppConfig()
+    leader, followers, camera = create_realtime_hardware(config)
+    assert leader.__class__.__name__ == "SimRobotArm"
+    assert len(followers) == 2
+    assert camera.__class__.__name__ == "SimRobotCamera"
 
 
 def test_api_returns_503_when_lerobot_runtime_is_unavailable(monkeypatch) -> None:
