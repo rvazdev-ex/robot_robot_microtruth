@@ -61,7 +61,7 @@ def create_app() -> FastAPI:
     async def execute(session_id: str, req: ExecuteRequest) -> Session:
         _ = req
         try:
-            session = manager.execute(session_id)
+            session = await manager.execute(session_id)
         except LeRobotUnavailableError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         await manager.broadcast(session_id, manager.events(session_id)[-1])

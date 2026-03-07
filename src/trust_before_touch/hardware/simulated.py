@@ -14,8 +14,11 @@ class SimLeaderArm(LeaderArm):
 
 
 class SimProverArm(ProverArm):
+    def __init__(self) -> None:
+        self.last_positions: list[float] = []
+
     def execute_challenge(self, challenge: Challenge) -> None:
-        _ = challenge
+        self.last_positions = list(challenge.trajectory_points)
 
 
 class SimCamera(Camera):

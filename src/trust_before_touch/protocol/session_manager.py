@@ -1,3 +1,4 @@
+import asyncio
 from collections import defaultdict
 from typing import Any
 from uuid import uuid4
@@ -75,7 +76,7 @@ class SessionManager:
         )
         return session
 
-    def execute(self, session_id: str) -> Session:
+    async def execute(self, session_id: str) -> Session:
         session = self.get_session(session_id)
         if session.challenge is None:
             raise ValueError("missing challenge")
@@ -84,6 +85,22 @@ class SessionManager:
         _, prover, _ = create_adapters(
             self.config, self.config.runtime_backend, session.attack_mode
         )
+
+        trajectory = session.challenge.trajectory_points
+        for i, point in enumerate(trajectory):
+            await self.broadcast(
+                session_id,
+                SessionEvent(
+                    event_type="robot_moving",
+                    payload={
+                        "step": i,
+                        "position": point,
+                        "total_steps": len(trajectory),
+                    },
+                ),
+            )
+            await asyncio.sleep(0.1)
+
         prover.execute_challenge(session.challenge)
         self.repo.save_session(session)
         self.repo.add_event(session_id, SessionEvent(event_type="executing"))

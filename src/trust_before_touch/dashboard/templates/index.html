@@ -26,6 +26,15 @@
     <p><strong>State:</strong> <span id="state">idle</span></p>
     <h3>Current Session Data</h3>
     <pre id="sessionData">{}</pre>
+    <h3>Robot Movement</h3>
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
+      <span>Position:</span>
+      <div id="posTrack" style="position:relative;width:300px;height:24px;background:#e0e0e0;border-radius:12px;overflow:hidden;">
+        <div id="posBar" style="position:absolute;left:140px;top:2px;width:20px;height:20px;background:#2196F3;border-radius:50%;transition:left 0.1s;"></div>
+      </div>
+      <span id="posValue">--</span>
+      <span id="moveStep" style="color:#888;"></span>
+    </div>
     <h3>Event Stream</h3>
     <pre id="events">[]</pre>
     <script>
@@ -35,6 +44,18 @@
 
       function render(objId, data) {
         document.getElementById(objId).textContent = JSON.stringify(data, null, 2);
+      }
+
+      function updateRobotPosition(payload) {
+        const pos = payload.position;
+        const pct = ((pos + 1) / 2) * 100;
+        const track = document.getElementById('posTrack');
+        const bar = document.getElementById('posBar');
+        const maxLeft = track.clientWidth - bar.clientWidth;
+        bar.style.left = Math.round((pct / 100) * maxLeft) + 'px';
+        document.getElementById('posValue').textContent = pos.toFixed(3);
+        document.getElementById('moveStep').textContent =
+          'step ' + (payload.step + 1) + '/' + payload.total_steps;
       }
 
       async function createSession(mode) {
@@ -61,7 +82,11 @@
         ws = new WebSocket(`ws://${location.host}/ws/sessions/${sid}`);
         ws.onopen = () => ws.send('subscribe');
         ws.onmessage = (msg) => {
-          events.push(JSON.parse(msg.data));
+          const evt = JSON.parse(msg.data);
+          if (evt.event_type === 'robot_moving') {
+            updateRobotPosition(evt.payload);
+          }
+          events.push(evt);
           render('events', events);
         };
       }
