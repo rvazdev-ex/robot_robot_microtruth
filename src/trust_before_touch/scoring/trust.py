@@ -3,7 +3,9 @@ from trust_before_touch.models.protocol import ScoreBreakdown, TelemetrySnapshot
 
 
 class TrustScorer:
-    def __init__(self, weights: WeightConfig, pass_threshold: float, borderline_threshold: float) -> None:
+    def __init__(
+        self, weights: WeightConfig, pass_threshold: float, borderline_threshold: float
+    ) -> None:
         self.weights = weights
         self.pass_threshold = pass_threshold
         self.borderline_threshold = borderline_threshold

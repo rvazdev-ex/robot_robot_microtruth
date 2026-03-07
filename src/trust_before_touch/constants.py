@@ -17,6 +17,8 @@ class ChallengeType(StrEnum):
     POSE_AND_PRESENT = "pose_and_present"
     TAP_RHYTHM = "tap_rhythm"
     HANDOFF_READINESS = "handoff_readiness"
+    TRAINING_MICROMOVEMENT_WATERMARK = "training_micromovement_watermark"
+    CROSS_CAMERA_HAT_WATERMARK = "cross_camera_hat_watermark"
 
 
 class AttackMode(StrEnum):

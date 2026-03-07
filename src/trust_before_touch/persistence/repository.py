@@ -71,5 +71,6 @@ class SessionRepository:
                 (session_id,),
             ).fetchall()
         return [
-            SessionEvent(timestamp=row[0], event_type=row[1], payload=json.loads(row[2])) for row in rows
+            SessionEvent(timestamp=row[0], event_type=row[1], payload=json.loads(row[2]))
+            for row in rows
         ]

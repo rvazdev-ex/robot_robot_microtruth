@@ -3,13 +3,17 @@
 Replace TODO sections with actual LeRobot robot and camera adapters for hardware execution.
 """
 
+from trust_before_touch.constants import ChallengeType
 from trust_before_touch.hardware.interfaces import Camera, LeaderArm, ProverArm, VerifierArm
 from trust_before_touch.models.protocol import Challenge, TelemetrySnapshot
 
 
 class SO101LeaderLeRobotAdapter(LeaderArm):
-    def generate_challenge(self) -> Challenge:
-        raise NotImplementedError("TODO: map challenge intents to LeRobot leader arm motion commands")
+    def generate_challenge(self, challenge_type: ChallengeType | None = None) -> Challenge:
+        _ = challenge_type
+        raise NotImplementedError(
+            "TODO: map challenge intents to LeRobot leader arm motion commands"
+        )
 
 
 class SO101ProverLeRobotAdapter(ProverArm):

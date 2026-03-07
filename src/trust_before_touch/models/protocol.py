@@ -10,6 +10,9 @@ class Challenge(BaseModel):
     expected_duration_ms: int
     expected_pose: str
     rhythm_pattern: list[int]
+    watermark_pattern: list[int] = []
+    expected_marker: str = "object-A"
+
 
 
 class TelemetrySnapshot(BaseModel):
@@ -19,6 +22,9 @@ class TelemetrySnapshot(BaseModel):
     contact_alignment: float
     replay_signature_match: bool = False
     delay_flag: bool = False
+    watermark_match_score: float = 0.0
+    hat_detected_by_other_camera: bool = False
+
 
 
 class ScoreBreakdown(BaseModel):

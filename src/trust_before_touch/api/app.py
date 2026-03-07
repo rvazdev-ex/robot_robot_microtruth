@@ -4,6 +4,8 @@ from fastapi.templating import Jinja2Templates
 
 from trust_before_touch.config import load_config
 from trust_before_touch.models.api import ClaimRequest, ExecuteRequest, SessionCreateRequest
+from trust_before_touch.models.events import SessionEvent
+from trust_before_touch.models.protocol import ScoreBreakdown, Session
 from trust_before_touch.protocol.session_manager import SessionManager
 
 
@@ -22,48 +24,48 @@ def create_app() -> FastAPI:
         return config.model_dump()
 
     @app.post("/sessions")
-    def create_session(req: SessionCreateRequest):
+    def create_session(req: SessionCreateRequest) -> Session:
         return manager.create_session(req.attack_mode)
 
     @app.get("/sessions/{session_id}")
-    def get_session(session_id: str):
+    def get_session(session_id: str) -> Session:
         try:
             return manager.get_session(session_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="session not found") from exc
 
     @app.post("/sessions/{session_id}/claim")
-    async def claim(session_id: str, req: ClaimRequest):
+    async def claim(session_id: str, req: ClaimRequest) -> Session:
         session = manager.claim(session_id, req.message)
         await manager.broadcast(session_id, manager.events(session_id)[-1])
         return session
 
     @app.post("/sessions/{session_id}/challenge")
-    async def challenge(session_id: str):
+    async def challenge(session_id: str) -> Session:
         session = manager.challenge(session_id)
         await manager.broadcast(session_id, manager.events(session_id)[-1])
         return session
 
     @app.post("/sessions/{session_id}/execute")
-    async def execute(session_id: str, req: ExecuteRequest):
+    async def execute(session_id: str, req: ExecuteRequest) -> Session:
         _ = req
         session = manager.execute(session_id)
         await manager.broadcast(session_id, manager.events(session_id)[-1])
         return session
 
     @app.post("/sessions/{session_id}/verify")
-    async def verify(session_id: str):
+    async def verify(session_id: str) -> Session:
         session = manager.verify(session_id)
         await manager.broadcast(session_id, manager.events(session_id)[-1])
         return session
 
     @app.get("/sessions/{session_id}/score")
-    def score(session_id: str):
+    def score(session_id: str) -> ScoreBreakdown | None:
         session = manager.get_session(session_id)
         return session.score
 
     @app.get("/sessions/{session_id}/events")
-    def events(session_id: str):
+    def events(session_id: str) -> list[SessionEvent]:
         return manager.events(session_id)
 
     @app.websocket("/ws/sessions/{session_id}")

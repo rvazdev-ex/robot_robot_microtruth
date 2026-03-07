@@ -23,5 +23,9 @@ attack-demo:
 	trust-before-touch run-demo --mode replay
 	trust-before-touch run-demo --mode delay
 
+watermark-demo:
+	trust-before-touch run-training-watermark-demo
+	trust-before-touch run-cross-camera-watermark-demo
+
 format:
 	ruff check --fix src tests
