@@ -248,19 +248,12 @@ class SO101Arm(RobotArm):
         motor_names = self._motor_names()
         read_signature = inspect.signature(self._bus.read)
         read_parameters = list(read_signature.parameters.values())
-        uses_varargs = any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in read_parameters[1:])
-
         if len(read_parameters) <= 1:
             raw_values = self._bus.read(register)
-        elif uses_varargs:
+        elif any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in read_parameters[1:]):
             raw_values = self._bus.read(register, *motor_names)
         else:
-            try:
-                raw_values = self._bus.read(register, motor_names)
-            except TypeError as exc:
-                if "unhashable type: 'list'" not in str(exc):
-                    raise
-                raw_values = self._bus.read(register, *motor_names)
+            raw_values = self._bus.read(register, motor_names)
 
         if isinstance(raw_values, dict):
             return [float(raw_values[name]) for name in motor_names if name in raw_values]
@@ -280,24 +273,13 @@ class SO101Arm(RobotArm):
         goal = np.array(values, dtype=np.float32)
         write_signature = inspect.signature(self._bus.write)
         write_parameters = list(write_signature.parameters.values())
-        has_any_varargs = any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in write_parameters)
-        uses_varargs = any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in write_parameters[2:])
-
         if len(write_parameters) <= 2:
-            if has_any_varargs:
-                self._bus.write(register, goal, *motor_names)
-            else:
-                self._bus.write(register, goal)
+            self._bus.write(register, goal)
             return
-        if uses_varargs:
+        if any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in write_parameters[2:]):
             self._bus.write(register, goal, *motor_names)
             return
-        try:
-            self._bus.write(register, goal, motor_names)
-        except TypeError as exc:
-            if "unhashable type: 'list'" not in str(exc):
-                raise
-            self._bus.write(register, goal, *motor_names)
+        self._bus.write(register, goal, motor_names)
 
     def read_joints(self) -> JointState:
         if not self._connected or self._bus is None:
