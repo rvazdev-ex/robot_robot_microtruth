@@ -94,9 +94,11 @@ def _resolve_feetech_bus_class() -> type[Any]:
     """Resolve Feetech bus class across LeRobot package layout changes."""
     feetech_mod = _try_import_any(
         [
+            "lerobot.motors.feetech",
+            "lerobot.motors.feetech_bus",
             "lerobot.common.robot_devices.motors.feetech",
-            "lerobot.robot_devices.motors.feetech",
             "lerobot.common.robot_devices.motors.feetech_bus",
+            "lerobot.robot_devices.motors.feetech",
             "lerobot.robot_devices.motors.feetech_bus",
         ]
     )
