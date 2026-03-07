@@ -244,15 +244,47 @@ class SO101Arm(RobotArm):
             self._connected = False
             logger.info("Disconnected arm '%s'", self._name)
 
+    def _motor_names(self) -> list[str]:
+        return list(self._motors.values())
+
+    def _read_register(self, register: str) -> list[float]:
+        if self._bus is None:
+            return []
+
+        read_signature = inspect.signature(self._bus.read)
+        if len(read_signature.parameters) <= 1:
+            raw_values = self._bus.read(register)
+        else:
+            raw_values = self._bus.read(register, self._motor_names())
+
+        if isinstance(raw_values, dict):
+            return [float(raw_values[name]) for name in self._motor_names() if name in raw_values]
+        if hasattr(raw_values, "flatten"):
+            return [float(v) for v in raw_values.flatten().tolist()]
+        if isinstance(raw_values, (list, tuple)):
+            return [float(v) for v in raw_values]
+        return [float(raw_values)]
+
+    def _write_register(self, register: str, values: list[float]) -> None:
+        if self._bus is None:
+            return
+
+        import numpy as np
+
+        goal = np.array(values, dtype=np.float32)
+        write_signature = inspect.signature(self._bus.write)
+        if len(write_signature.parameters) <= 2:
+            self._bus.write(register, goal)
+            return
+        self._bus.write(register, goal, self._motor_names())
+
     def read_joints(self) -> JointState:
         if not self._connected or self._bus is None:
             return JointState()
-        values = self._bus.read("Present_Position")
-        positions = [float(v) for v in values.flatten().tolist()]
+        positions = self._read_register("Present_Position")
         velocities: list[float] = [0.0] * len(positions)
         try:
-            vel_values = self._bus.read("Present_Speed")
-            velocities = [float(v) for v in vel_values.flatten().tolist()]
+            velocities = self._read_register("Present_Speed")
         except Exception:
             pass
         self._last_positions = positions
@@ -265,10 +297,7 @@ class SO101Arm(RobotArm):
     def write_joints(self, positions: list[float]) -> None:
         if not self._connected or self._bus is None:
             return
-        import numpy as np
-
-        goal = np.array(positions, dtype=np.float32)
-        self._bus.write("Goal_Position", goal)
+        self._write_register("Goal_Position", positions)
         self._last_positions = positions
 
     def get_telemetry(self) -> ArmTelemetry:
@@ -277,14 +306,12 @@ class SO101Arm(RobotArm):
         load: list[float] = [0.0] * 6
         try:
             if self._bus is not None:
-                temp_values = self._bus.read("Present_Temperature")
-                temperature = [float(v) for v in temp_values.flatten().tolist()]
+                temperature = self._read_register("Present_Temperature")
         except Exception:
             pass
         try:
             if self._bus is not None:
-                load_values = self._bus.read("Present_Load")
-                load = [float(v) for v in load_values.flatten().tolist()]
+                load = self._read_register("Present_Load")
         except Exception:
             pass
         is_moving = any(abs(v) > 1.0 for v in joint_state.velocities)
