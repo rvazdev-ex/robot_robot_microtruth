@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Trust Before Touch SO-101</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 2rem; }
+      pre { background: #f4f4f4; padding: 1rem; border-radius: 8px; }
+      button { margin-right: 0.5rem; margin-bottom: 0.5rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Trust Before Touch (Simulation)</h1>
+    <div>
+      <button onclick="createSession('normal')">Create Normal Session</button>
+      <button onclick="createSession('replay')">Create Replay Attack Session</button>
+      <button onclick="createSession('delay')">Create Delay Attack Session</button>
+    </div>
+    <div>
+      <button onclick="step('claim')">Claim</button>
+      <button onclick="step('challenge')">Challenge</button>
+      <button onclick="step('execute')">Execute</button>
+      <button onclick="step('verify')">Verify</button>
+    </div>
+    <p><strong>Session:</strong> <span id="session"></span></p>
+    <p><strong>State:</strong> <span id="state">idle</span></p>
+    <h3>Current Session Data</h3>
+    <pre id="sessionData">{}</pre>
+    <h3>Event Stream</h3>
+    <pre id="events">[]</pre>
+    <script>
+      let sid = null;
+      let ws = null;
+      const events = [];
+
+      function render(objId, data) {
+        document.getElementById(objId).textContent = JSON.stringify(data, null, 2);
+      }
+
+      async function createSession(mode) {
+        const r = await fetch('/sessions', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({attack_mode: mode})});
+        const s = await r.json();
+        sid = s.session_id;
+        document.getElementById('session').textContent = sid;
+        document.getElementById('state').textContent = s.state;
+        render('sessionData', s);
+        connectWs();
+      }
+
+      async function step(action) {
+        if (!sid) return;
+        const body = action === 'claim' ? {message:'prover ready for handoff'} : {};
+        const r = await fetch(`/sessions/${sid}/${action}`, {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(body)});
+        const s = await r.json();
+        document.getElementById('state').textContent = s.state;
+        render('sessionData', s);
+      }
+
+      function connectWs() {
+        if (ws) ws.close();
+        ws = new WebSocket(`ws://${location.host}/ws/sessions/${sid}`);
+        ws.onopen = () => ws.send('subscribe');
+        ws.onmessage = (msg) => {
+          events.push(JSON.parse(msg.data));
+          render('events', events);
+        };
+      }
+    </script>
+  </body>
+</html>

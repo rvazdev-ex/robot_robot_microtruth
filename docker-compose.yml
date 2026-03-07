@@ -1,0 +1,10 @@
+services:
+  trust-before-touch:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - TBT_DB_PATH=/app/data/tbt.sqlite
+      - TBT_SEED=101
+    volumes:
+      - ./data:/app/data
