@@ -16,7 +16,7 @@ This project implements a physical challenge-response system (PCS) where a prove
 
 ## Installation (pip package)
 ```bash
-python3.11 -m venv .venv
+python3.10 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
 python -m pip install .

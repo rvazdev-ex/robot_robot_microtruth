@@ -14,7 +14,6 @@ class Challenge(BaseModel):
     expected_marker: str = "object-A"
 
 
-
 class TelemetrySnapshot(BaseModel):
     trajectory_error: float
     timing_delta_ms: int
@@ -24,7 +23,6 @@ class TelemetrySnapshot(BaseModel):
     delay_flag: bool = False
     watermark_match_score: float = 0.0
     hat_detected_by_other_camera: bool = False
-
 
 
 class ScoreBreakdown(BaseModel):
