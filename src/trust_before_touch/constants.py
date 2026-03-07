@@ -32,3 +32,8 @@ class AttackMode(StrEnum):
     NORMAL = "normal"
     REPLAY = "replay"
     DELAY = "delay"
+
+
+class RuntimeBackend(StrEnum):
+    SIMULATION = "simulation"
+    LEROBOT = "lerobot"

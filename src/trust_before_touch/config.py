@@ -1,5 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from trust_before_touch.constants import RuntimeBackend
 
 
 class WeightConfig(BaseModel):
@@ -21,6 +23,7 @@ class AppConfig(BaseSettings):
     observation_weight: float = 0.25
     alignment_weight: float = 0.20
     sim_noise: float = 0.03
+    runtime_backend: RuntimeBackend = Field(default=RuntimeBackend.SIMULATION)
     lerobot_leader_arm_port: str = "/dev/ttyACM1"
     lerobot_follower_with_camera_port: str = "/dev/ttyACM0"
     lerobot_follower_without_camera_port: str = "/dev/ttyACM2"
