@@ -39,6 +39,7 @@ make dev
 make demo
 python -m trust_before_touch run-demo --mode normal
 trust-before-touch run-demo --mode normal
+trust-before-touch run-demo --mode normal --backend simulation
 ```
 
 ## Attack demo commands
@@ -54,6 +55,23 @@ make watermark-demo
 trust-before-touch run-training-watermark-demo
 trust-before-touch run-cross-camera-watermark-demo
 ```
+
+
+## Real-time LeRobot usage
+Run the same protocol against real SO-101 hardware through LeRobot by enabling the LeRobot backend:
+
+```bash
+export TBT_RUNTIME_BACKEND=lerobot
+# optional device overrides
+export TBT_LEROBOT_LEADER_ARM_PORT=/dev/ttyACM1
+export TBT_LEROBOT_FOLLOWER_WITH_CAMERA_PORT=/dev/ttyACM0
+export TBT_LEROBOT_FOLLOWER_WITHOUT_CAMERA_PORT=/dev/ttyACM2
+export TBT_LEROBOT_CAMERA_DEVICE=/dev/video2
+
+trust-before-touch run-demo --mode normal --backend lerobot
+```
+
+The REST API uses the same setting (`TBT_RUNTIME_BACKEND`) and returns HTTP 503 with a descriptive message when LeRobot is selected but unavailable.
 
 ## API summary
 - `GET /health`

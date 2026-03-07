@@ -4,13 +4,11 @@ from uuid import uuid4
 
 from trust_before_touch.config import AppConfig
 from trust_before_touch.constants import AttackMode, ChallengeType, SessionState
-from trust_before_touch.hardware.simulated import SimLeaderArm, SimProverArm, SimVerifierArm
+from trust_before_touch.hardware.factory import create_adapters
 from trust_before_touch.models.events import SessionEvent
 from trust_before_touch.models.protocol import ScoreBreakdown, Session
 from trust_before_touch.persistence.repository import SessionRepository
-from trust_before_touch.protocol.challenges import ChallengeGenerator
 from trust_before_touch.scoring.trust import TrustScorer
-from trust_before_touch.simulation.engine import SimulationEngine
 from trust_before_touch.state_machine import SessionStateMachine
 
 
@@ -18,8 +16,6 @@ class SessionManager:
     def __init__(self, config: AppConfig):
         self.config = config
         self.repo = SessionRepository(config.db_path)
-        self.generator = ChallengeGenerator(config.seed)
-        self.engine = SimulationEngine(config.seed, config.sim_noise)
         self.scorer = TrustScorer(
             config.scoring_weights(), config.pass_threshold, config.borderline_threshold
         )
@@ -66,7 +62,9 @@ class SessionManager:
         session = self.get_session(session_id)
         sm = SessionStateMachine(session.state)
         session.state = sm.transition(SessionState.CHALLENGE_ISSUED)
-        leader = SimLeaderArm(self.generator)
+        leader, _, _ = create_adapters(
+            self.config, self.config.runtime_backend, session.attack_mode
+        )
         session.challenge = leader.generate_challenge(challenge_type)
         self.repo.save_session(session)
         self.repo.add_event(
@@ -83,7 +81,9 @@ class SessionManager:
             raise ValueError("missing challenge")
         sm = SessionStateMachine(session.state)
         session.state = sm.transition(SessionState.EXECUTING)
-        prover = SimProverArm()
+        _, prover, _ = create_adapters(
+            self.config, self.config.runtime_backend, session.attack_mode
+        )
         prover.execute_challenge(session.challenge)
         self.repo.save_session(session)
         self.repo.add_event(session_id, SessionEvent(event_type="executing"))
@@ -95,7 +95,9 @@ class SessionManager:
             raise ValueError("missing challenge")
         sm = SessionStateMachine(session.state)
         session.state = sm.transition(SessionState.VERIFYING)
-        verifier = SimVerifierArm(self.engine, session.attack_mode)
+        _, _, verifier = create_adapters(
+            self.config, self.config.runtime_backend, session.attack_mode
+        )
         session.telemetry = verifier.observe_execution(session.challenge)
         score: ScoreBreakdown = self.scorer.score(session.telemetry)
         session.score = score

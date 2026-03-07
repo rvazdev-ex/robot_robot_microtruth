@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from trust_before_touch.config import load_config
+from trust_before_touch.hardware.lerobot_so101_stub import LeRobotUnavailableError
 from trust_before_touch.models.api import ClaimRequest, ExecuteRequest, SessionCreateRequest
 from trust_before_touch.models.events import SessionEvent
 from trust_before_touch.models.protocol import ScoreBreakdown, Session
@@ -49,20 +50,29 @@ def create_app() -> FastAPI:
 
     @app.post("/sessions/{session_id}/challenge")
     async def challenge(session_id: str) -> Session:
-        session = manager.challenge(session_id)
+        try:
+            session = manager.challenge(session_id)
+        except LeRobotUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         await manager.broadcast(session_id, manager.events(session_id)[-1])
         return session
 
     @app.post("/sessions/{session_id}/execute")
     async def execute(session_id: str, req: ExecuteRequest) -> Session:
         _ = req
-        session = manager.execute(session_id)
+        try:
+            session = manager.execute(session_id)
+        except LeRobotUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         await manager.broadcast(session_id, manager.events(session_id)[-1])
         return session
 
     @app.post("/sessions/{session_id}/verify")
     async def verify(session_id: str) -> Session:
-        session = manager.verify(session_id)
+        try:
+            session = manager.verify(session_id)
+        except LeRobotUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         await manager.broadcast(session_id, manager.events(session_id)[-1])
         return session
 
