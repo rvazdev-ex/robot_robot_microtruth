@@ -194,6 +194,139 @@ def test_so101_arm_read_joints_with_named_motors_api() -> None:
     assert joints.positions == [11.0, 22.0]
 
 
+def test_so101_arm_read_joints_with_varargs_motors_api() -> None:
+    from trust_before_touch.hardware.lerobot_so101 import SO101Arm
+
+    class FakeBus:
+        def read(self, register: str, *motor: str) -> dict[str, float]:
+            assert register == "Present_Position"
+            assert motor == ("joint_a", "joint_b")
+            return {"joint_a": 11.0, "joint_b": 22.0}
+
+    arm = SO101Arm("leader", "/dev/null", motors={1: "joint_a", 2: "joint_b"})
+    arm._bus = FakeBus()
+    arm._connected = True
+
+    joints = arm.read_joints()
+
+    assert joints.positions == [11.0, 22.0]
+
+
+def test_so101_arm_write_joints_with_varargs_motors_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from trust_before_touch.hardware.lerobot_so101 import SO101Arm
+
+    class FakeArray:
+        def __init__(self, values: list[float]) -> None:
+            self._values = values
+
+        def tolist(self) -> list[float]:
+            return self._values
+
+    fake_numpy = types.SimpleNamespace(
+        float32=object(),
+        array=lambda values, dtype: FakeArray(values),
+    )
+    monkeypatch.setitem(__import__("sys").modules, "numpy", fake_numpy)
+
+    class FakeBus:
+        def __init__(self) -> None:
+            self.register = ""
+            self.goal: list[float] = []
+            self.motors: tuple[str, ...] = ()
+
+        def write(self, register: str, values: object, *motor: str) -> None:
+            self.register = register
+            self.goal = [float(v) for v in values.tolist()]
+            self.motors = motor
+
+    arm = SO101Arm("leader", "/dev/null", motors={1: "joint_a", 2: "joint_b"})
+    bus = FakeBus()
+    arm._bus = bus
+    arm._connected = True
+
+    arm.write_joints([3.0, 4.0])
+
+    assert bus.register == "Goal_Position"
+    assert bus.goal == [3.0, 4.0]
+    assert bus.motors == ("joint_a", "joint_b")
+
+
+def test_so101_arm_read_joints_with_wrapped_bus_signature() -> None:
+    from trust_before_touch.hardware.lerobot_so101 import SO101Arm
+
+    class FakeBus:
+        def _read_impl(self, register: str, *motor: str) -> dict[str, float]:
+            assert register == "Present_Position"
+            assert motor == ("joint_a", "joint_b")
+            return {"joint_a": 11.0, "joint_b": 22.0}
+
+        def read(self, *args: object, **kwargs: object) -> dict[str, float]:
+            register = args[0]
+            motors = args[1:]
+            if len(motors) == 1 and isinstance(motors[0], list):
+                raise TypeError("unhashable type: 'list'")
+            return self._read_impl(register, *motors)
+
+    arm = SO101Arm("leader", "/dev/null", motors={1: "joint_a", 2: "joint_b"})
+    arm._bus = FakeBus()
+    arm._connected = True
+
+    joints = arm.read_joints()
+
+    assert joints.positions == [11.0, 22.0]
+
+
+def test_so101_arm_write_joints_with_wrapped_bus_signature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from trust_before_touch.hardware.lerobot_so101 import SO101Arm
+
+    class FakeArray:
+        def __init__(self, values: list[float]) -> None:
+            self._values = values
+
+        def tolist(self) -> list[float]:
+            return self._values
+
+    fake_numpy = types.SimpleNamespace(
+        float32=object(),
+        array=lambda values, dtype: FakeArray(values),
+    )
+    monkeypatch.setitem(__import__("sys").modules, "numpy", fake_numpy)
+
+    class FakeBus:
+        def __init__(self) -> None:
+            self.register = ""
+            self.goal: list[float] = []
+            self.motors: tuple[str, ...] = ()
+
+        def _write_impl(self, register: str, values: object, *motor: str) -> None:
+            self.register = register
+            self.goal = [float(v) for v in values.tolist()]
+            self.motors = motor
+
+        def write(self, *args: object, **kwargs: object) -> None:
+            register = args[0]
+            values = args[1]
+            motors = args[2:]
+            if len(motors) == 1 and isinstance(motors[0], list):
+                raise TypeError("unhashable type: 'list'")
+            self._write_impl(register, values, *motors)
+
+    arm = SO101Arm("leader", "/dev/null", motors={1: "joint_a", 2: "joint_b"})
+    bus = FakeBus()
+    arm._bus = bus
+    arm._connected = True
+
+    arm.write_joints([3.0, 4.0])
+
+    assert bus.register == "Goal_Position"
+    assert bus.goal == [3.0, 4.0]
+    assert bus.motors == ("joint_a", "joint_b")
+
+
 def test_so101_arm_write_joints_with_named_motors_api(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

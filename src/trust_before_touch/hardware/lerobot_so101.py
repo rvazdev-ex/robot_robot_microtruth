@@ -139,10 +139,7 @@ def _build_feetech_motors(
 ) -> dict[str, Any]:
     """Build motors payload compatible with older and newer LeRobot APIs."""
     if not use_motor_model_objects:
-        return {
-            name: (motor_model, motor_id)
-            for motor_id, name in motors.items()
-        }
+        return {name: (motor_model, motor_id) for motor_id, name in motors.items()}
 
     motor_class = _resolve_motors_bus_motor_class()
     if motor_class is None:
@@ -169,10 +166,7 @@ def _build_feetech_motors(
         except TypeError:
             return SimpleNamespace(id=motor_id, model=motor_model, norm_mode=None)
 
-    return {
-        name: _build_motor_model(motor_id)
-        for motor_id, name in motors.items()
-    }
+    return {name: _build_motor_model(motor_id) for motor_id, name in motors.items()}
 
 
 # ---------------------------------------------------------------------------
@@ -251,14 +245,25 @@ class SO101Arm(RobotArm):
         if self._bus is None:
             return []
 
+        motor_names = self._motor_names()
         read_signature = inspect.signature(self._bus.read)
-        if len(read_signature.parameters) <= 1:
+        read_parameters = list(read_signature.parameters.values())
+        uses_varargs = any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in read_parameters[1:])
+
+        if len(read_parameters) <= 1:
             raw_values = self._bus.read(register)
+        elif uses_varargs:
+            raw_values = self._bus.read(register, *motor_names)
         else:
-            raw_values = self._bus.read(register, self._motor_names())
+            try:
+                raw_values = self._bus.read(register, motor_names)
+            except TypeError as exc:
+                if "unhashable type: 'list'" not in str(exc):
+                    raise
+                raw_values = self._bus.read(register, *motor_names)
 
         if isinstance(raw_values, dict):
-            return [float(raw_values[name]) for name in self._motor_names() if name in raw_values]
+            return [float(raw_values[name]) for name in motor_names if name in raw_values]
         if hasattr(raw_values, "flatten"):
             return [float(v) for v in raw_values.flatten().tolist()]
         if isinstance(raw_values, (list, tuple)):
@@ -271,12 +276,28 @@ class SO101Arm(RobotArm):
 
         import numpy as np
 
+        motor_names = self._motor_names()
         goal = np.array(values, dtype=np.float32)
         write_signature = inspect.signature(self._bus.write)
-        if len(write_signature.parameters) <= 2:
-            self._bus.write(register, goal)
+        write_parameters = list(write_signature.parameters.values())
+        has_any_varargs = any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in write_parameters)
+        uses_varargs = any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in write_parameters[2:])
+
+        if len(write_parameters) <= 2:
+            if has_any_varargs:
+                self._bus.write(register, goal, *motor_names)
+            else:
+                self._bus.write(register, goal)
             return
-        self._bus.write(register, goal, self._motor_names())
+        if uses_varargs:
+            self._bus.write(register, goal, *motor_names)
+            return
+        try:
+            self._bus.write(register, goal, motor_names)
+        except TypeError as exc:
+            if "unhashable type: 'list'" not in str(exc):
+                raise
+            self._bus.write(register, goal, *motor_names)
 
     def read_joints(self) -> JointState:
         if not self._connected or self._bus is None:
