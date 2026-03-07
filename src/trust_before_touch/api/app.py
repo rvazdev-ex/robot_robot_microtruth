@@ -1,3 +1,6 @@
+from importlib.resources import files
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, Request, WebSocket
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -9,11 +12,15 @@ from trust_before_touch.models.protocol import ScoreBreakdown, Session
 from trust_before_touch.protocol.session_manager import SessionManager
 
 
+def _templates_directory() -> Path:
+    return Path(str(files("trust_before_touch").joinpath("dashboard/templates")))
+
+
 def create_app() -> FastAPI:
     config = load_config()
     manager = SessionManager(config)
     app = FastAPI(title="trust-before-touch-so101")
-    templates = Jinja2Templates(directory="src/trust_before_touch/dashboard/templates")
+    templates = Jinja2Templates(directory=str(_templates_directory()))
 
     @app.get("/health")
     def health() -> dict[str, str]:
