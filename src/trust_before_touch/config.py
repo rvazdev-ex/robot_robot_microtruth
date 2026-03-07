@@ -21,6 +21,10 @@ class AppConfig(BaseSettings):
     observation_weight: float = 0.25
     alignment_weight: float = 0.20
     sim_noise: float = 0.03
+    lerobot_leader_arm_port: str = "/dev/ttyACM1"
+    lerobot_follower_with_camera_port: str = "/dev/ttyACM0"
+    lerobot_follower_without_camera_port: str = "/dev/ttyACM2"
+    lerobot_camera_device: str = "/dev/video2"
 
     def scoring_weights(self) -> WeightConfig:
         return WeightConfig(

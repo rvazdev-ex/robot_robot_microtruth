@@ -71,6 +71,14 @@ trust-before-touch run-cross-camera-watermark-demo
 ## LeRobot integration notes
 Simulation uses interfaces in `hardware/interfaces.py` and `hardware/simulated.py`. Real SO-101 support is prepared via `hardware/lerobot_so101_stub.py`, where LeRobot control + camera hooks should be implemented.
 
+Default HuggingFace LeRobot device mapping is configured as:
+- Leader arm: `/dev/ttyACM1`
+- Follower with camera: `/dev/ttyACM0`
+- Follower without camera: `/dev/ttyACM2`
+- Camera: `/dev/video2`
+
+Override with `TBT_LEROBOT_LEADER_ARM_PORT`, `TBT_LEROBOT_FOLLOWER_WITH_CAMERA_PORT`, `TBT_LEROBOT_FOLLOWER_WITHOUT_CAMERA_PORT`, and `TBT_LEROBOT_CAMERA_DEVICE`.
+
 ## Limitations
 - No real robot control in MVP.
 - Vision/contact are mocked.
