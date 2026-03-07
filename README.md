@@ -14,18 +14,30 @@ This project implements a physical challenge-response system (PCS) where a prove
 - **Dashboard**: simple HTML/JS UI at `/`.
 - **Hardware layer**: LeRobot-oriented interfaces with simulation adapters and SO-101 stubs.
 
-## Quickstart
+## Installation (pip package)
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
-make install
-make dev
+python -m pip install -U pip
+python -m pip install .
+```
+
+## Quickstart
+```bash
+trust-before-touch-api
 ```
 Open: http://localhost:8000
+
+For development mode (editable install + tooling):
+```bash
+python -m pip install -e .[dev]
+make dev
+```
 
 ## Demo commands
 ```bash
 make demo
+python -m trust_before_touch run-demo --mode normal
 trust-before-touch run-demo --mode normal
 ```
 

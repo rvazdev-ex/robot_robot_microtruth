@@ -32,12 +32,16 @@ dev = [
 
 [project.scripts]
 trust-before-touch = "trust_before_touch.cli.main:app"
+trust-before-touch-api = "trust_before_touch.api.__main__:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+trust_before_touch = ["dashboard/templates/*.html"]
 
 [tool.ruff]
 line-length = 100
@@ -60,3 +64,4 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+pythonpath = ["src"]
