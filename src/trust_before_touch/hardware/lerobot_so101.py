@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import base64
 import logging
-import math
 import time
 from importlib import import_module
 from random import Random
-from typing import Any
+from typing import Any, cast
 
 from trust_before_touch.config import AppConfig
 from trust_before_touch.constants import AttackMode, ChallengeType
@@ -26,7 +25,6 @@ from trust_before_touch.hardware.interfaces import (
 )
 from trust_before_touch.models.protocol import Challenge, TelemetrySnapshot
 from trust_before_touch.models.robot import (
-    SO101_JOINT_NAMES,
     ArmTelemetry,
     CameraFrame,
     JointState,
@@ -74,6 +72,46 @@ def _try_import(module_path: str) -> Any:
         ) from exc
 
 
+def _try_import_any(module_paths: list[str]) -> Any:
+    """Import the first available module path from a list."""
+    missing_paths: list[str] = []
+    for path in module_paths:
+        try:
+            return import_module(path)
+        except ModuleNotFoundError:
+            missing_paths.append(path)
+
+    tried = ", ".join(f"`{path}`" for path in missing_paths)
+    raise LeRobotUnavailableError(
+        "LeRobot backend requested but no compatible Feetech module was found. "
+        f"Tried: {tried}. "
+        "Install/upgrade LeRobot and connect SO-101 devices to use "
+        "runtime_backend=lerobot."
+    )
+
+
+def _resolve_feetech_bus_class() -> type[Any]:
+    """Resolve Feetech bus class across LeRobot package layout changes."""
+    feetech_mod = _try_import_any(
+        [
+            "lerobot.common.robot_devices.motors.feetech",
+            "lerobot.robot_devices.motors.feetech",
+            "lerobot.common.robot_devices.motors.feetech_bus",
+            "lerobot.robot_devices.motors.feetech_bus",
+        ]
+    )
+
+    for class_name in ("FeetechMotorsBus", "FeetechMotorBus"):
+        bus_class = getattr(feetech_mod, class_name, None)
+        if bus_class is not None:
+            return cast(type[Any], bus_class)
+
+    raise LeRobotUnavailableError(
+        "LeRobot Feetech module is installed but missing a supported bus class. "
+        "Expected `FeetechMotorsBus` or `FeetechMotorBus`."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Real-time arm adapter using Feetech motors bus
 # ---------------------------------------------------------------------------
@@ -110,14 +148,10 @@ class SO101Arm(RobotArm):
     def connect(self) -> None:
         if self._connected:
             return
-        feetech_mod = _try_import("lerobot.common.robot_devices.motors.feetech")
-        FeetechMotorsBus = feetech_mod.FeetechMotorsBus
-        self._bus = FeetechMotorsBus(
+        feetech_bus_cls = _resolve_feetech_bus_class()
+        self._bus = feetech_bus_cls(
             port=self._port,
-            motors={
-                name: (self._motor_model, motor_id)
-                for motor_id, name in self._motors.items()
-            },
+            motors={name: (self._motor_model, motor_id) for motor_id, name in self._motors.items()},
         )
         self._bus.connect()
         self._connected = True
@@ -314,7 +348,7 @@ class SO101VerifierLeRobotAdapter(VerifierArm):
         target = challenge.trajectory_points
         if len(target) == len(prover_joints.positions):
             trajectory_error = sum(
-                abs(a - b) for a, b in zip(target, prover_joints.positions)
+                abs(a - b) for a, b in zip(target, prover_joints.positions, strict=False)
             ) / len(target)
         else:
             trajectory_error = abs(self.rng.gauss(0.06, 0.02))
@@ -327,7 +361,7 @@ class SO101VerifierLeRobotAdapter(VerifierArm):
         vision = 0.9 if frame.data_b64 else 0.5
 
         # Alignment from verifier arm reading
-        verifier_joints = self.arm.read_joints()
+        self.arm.read_joints()
         alignment = max(0.0, min(1.0, 0.93 - abs(self.rng.gauss(0.0, 0.05))))
 
         watermark_match_score = 0.0
