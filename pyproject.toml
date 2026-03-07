@@ -7,7 +7,7 @@ name = "trust-before-touch-so101"
 version = "0.1.0"
 description = "Simulation-first robot-to-robot physical challenge-response for SO-101 arms via LeRobot-oriented adapters"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 authors = [{ name = "OpenAI Codex" }]
 dependencies = [
   "fastapi>=0.111.0",
@@ -45,13 +45,13 @@ trust_before_touch = ["dashboard/templates/*.html"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 strict = true
 warn_unused_configs = true
 mypy_path = "src"
