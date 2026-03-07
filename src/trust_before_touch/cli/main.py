@@ -26,7 +26,7 @@ def run_demo(
     session = manager.create_session(mode)
     session = manager.claim(session.session_id, "prover ready")
     session = manager.challenge(session.session_id)
-    session = manager.execute(session.session_id)
+    session = asyncio.run(manager.execute(session.session_id))
     session = manager.verify(session.session_id)
     typer.echo(session.model_dump_json(indent=2))
 
@@ -38,7 +38,7 @@ def run_training_watermark_demo(backend: RuntimeBackend | None = None) -> None:
     session = manager.create_session(AttackMode.NORMAL)
     session = manager.claim(session.session_id, "prover ready")
     session = manager.challenge(session.session_id, ChallengeType.TRAINING_MICROMOVEMENT_WATERMARK)
-    session = manager.execute(session.session_id)
+    session = asyncio.run(manager.execute(session.session_id))
     session = manager.verify(session.session_id)
     typer.echo(session.model_dump_json(indent=2))
 
@@ -50,7 +50,7 @@ def run_cross_camera_watermark_demo(backend: RuntimeBackend | None = None) -> No
     session = manager.create_session(AttackMode.NORMAL)
     session = manager.claim(session.session_id, "prover ready")
     session = manager.challenge(session.session_id, ChallengeType.CROSS_CAMERA_HAT_WATERMARK)
-    session = manager.execute(session.session_id)
+    session = asyncio.run(manager.execute(session.session_id))
     session = manager.verify(session.session_id)
     typer.echo(session.model_dump_json(indent=2))
 
