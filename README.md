@@ -8,7 +8,7 @@ This project implements a physical challenge-response system (PCS) where a prove
 ## Architecture
 - **FastAPI backend**: protocol orchestration, REST + WebSocket streaming.
 - **State machine**: `idle -> claim_received -> challenge_issued -> executing -> verifying -> passed/failed/aborted`.
-- **Simulation engine**: deterministic challenge execution with normal/replay/delay modes.
+- **Simulation engine**: deterministic challenge execution with normal/replay/delay and watermark challenge modes.
 - **Scoring**: weighted trust breakdown (trajectory/timing/observation/alignment).
 - **Persistence**: SQLite session + event log.
 - **Dashboard**: simple HTML/JS UI at `/`.
@@ -34,6 +34,13 @@ trust-before-touch run-demo --mode normal
 make attack-demo
 trust-before-touch run-demo --mode replay
 trust-before-touch run-demo --mode delay
+```
+
+## Watermarking demo commands
+```bash
+make watermark-demo
+trust-before-touch run-training-watermark-demo
+trust-before-touch run-cross-camera-watermark-demo
 ```
 
 ## API summary

@@ -1,10 +1,11 @@
 from typing import Protocol
 
+from trust_before_touch.constants import ChallengeType
 from trust_before_touch.models.protocol import Challenge, TelemetrySnapshot
 
 
 class LeaderArm(Protocol):
-    def generate_challenge(self) -> Challenge: ...
+    def generate_challenge(self, challenge_type: ChallengeType | None = None) -> Challenge: ...
 
 
 class ProverArm(Protocol):

@@ -3,7 +3,7 @@ from typing import Any
 from uuid import uuid4
 
 from trust_before_touch.config import AppConfig
-from trust_before_touch.constants import AttackMode, SessionState
+from trust_before_touch.constants import AttackMode, ChallengeType, SessionState
 from trust_before_touch.hardware.simulated import SimLeaderArm, SimProverArm, SimVerifierArm
 from trust_before_touch.models.events import SessionEvent
 from trust_before_touch.models.protocol import ScoreBreakdown, Session
@@ -56,19 +56,24 @@ class SessionManager:
         session.state = sm.transition(SessionState.CLAIM_RECEIVED)
         session.claim = message
         self.repo.save_session(session)
-        self.repo.add_event(session_id, SessionEvent(event_type="claim_received", payload={"message": message}))
+        self.repo.add_event(
+            session_id,
+            SessionEvent(event_type="claim_received", payload={"message": message}),
+        )
         return session
 
-    def challenge(self, session_id: str) -> Session:
+    def challenge(self, session_id: str, challenge_type: ChallengeType | None = None) -> Session:
         session = self.get_session(session_id)
         sm = SessionStateMachine(session.state)
         session.state = sm.transition(SessionState.CHALLENGE_ISSUED)
         leader = SimLeaderArm(self.generator)
-        session.challenge = leader.generate_challenge()
+        session.challenge = leader.generate_challenge(challenge_type)
         self.repo.save_session(session)
         self.repo.add_event(
             session_id,
-            SessionEvent(event_type="challenge_issued", payload=session.challenge.model_dump(mode="json")),
+            SessionEvent(
+                event_type="challenge_issued", payload=session.challenge.model_dump(mode="json")
+            ),
         )
         return session
 
