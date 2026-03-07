@@ -7,10 +7,12 @@ These adapters read/write actual motor positions at the control loop frequency.
 from __future__ import annotations
 
 import base64
+import inspect
 import logging
 import time
 from importlib import import_module
 from random import Random
+from types import SimpleNamespace
 from typing import Any, cast
 
 from trust_before_touch.config import AppConfig
@@ -148,8 +150,27 @@ def _build_feetech_motors(
             "LeRobot motors bus module is installed but missing `Motor` class."
         )
 
+    signature = inspect.signature(motor_class)
+    constructor_parameters = signature.parameters
+
+    def _build_motor_model(motor_id: int) -> Any:
+        kwargs: dict[str, Any] = {}
+        if "id" in constructor_parameters:
+            kwargs["id"] = motor_id
+        if "model" in constructor_parameters:
+            kwargs["model"] = motor_model
+        if "norm_mode" in constructor_parameters:
+            norm_mode_param = constructor_parameters["norm_mode"]
+            if norm_mode_param.default is inspect._empty:
+                kwargs["norm_mode"] = None
+
+        try:
+            return motor_class(**kwargs)
+        except TypeError:
+            return SimpleNamespace(id=motor_id, model=motor_model, norm_mode=None)
+
     return {
-        name: motor_class(id=motor_id, model=motor_model)
+        name: _build_motor_model(motor_id)
         for motor_id, name in motors.items()
     }
 

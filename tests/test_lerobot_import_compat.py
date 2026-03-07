@@ -133,3 +133,44 @@ def test_build_feetech_motors_with_motor_objects(monkeypatch: pytest.MonkeyPatch
     assert isinstance(motor, FakeMotor)
     assert motor.id == 3
     assert motor.model == "sts3215"
+
+
+def test_build_feetech_motors_with_required_norm_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeMotor:
+        def __init__(self, id: int, model: str, norm_mode: object) -> None:
+            self.id = id
+            self.model = model
+            self.norm_mode = norm_mode
+
+    monkeypatch.setattr(
+        "trust_before_touch.hardware.lerobot_so101._resolve_motors_bus_motor_class",
+        lambda: FakeMotor,
+    )
+
+    payload = _build_feetech_motors({4: "joint_d"}, "sts3215", use_motor_model_objects=True)
+    motor = payload["joint_d"]
+    assert isinstance(motor, FakeMotor)
+    assert motor.id == 4
+    assert motor.model == "sts3215"
+    assert motor.norm_mode is None
+
+
+def test_build_feetech_motors_falls_back_to_namespace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeMotor:
+        def __init__(self, id: int, model: str, norm_mode: object) -> None:
+            raise TypeError("cannot construct")
+
+    monkeypatch.setattr(
+        "trust_before_touch.hardware.lerobot_so101._resolve_motors_bus_motor_class",
+        lambda: FakeMotor,
+    )
+
+    payload = _build_feetech_motors({5: "joint_e"}, "sts3215", use_motor_model_objects=True)
+    motor = payload["joint_e"]
+    assert motor.id == 5
+    assert motor.model == "sts3215"
+    assert motor.norm_mode is None
