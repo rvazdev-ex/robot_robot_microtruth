@@ -245,7 +245,7 @@ class SO101Arm(RobotArm):
         """Call bus.read with compatible calling convention.
 
         Decorator wrappers on the bus can hide the real signature, so we
-        try the three known calling conventions in order instead of relying
+        try the known calling conventions in order instead of relying
         on signature inspection.
         """
         # 1. Unpacked motor names (newer LeRobot APIs with *motor_names)
@@ -260,7 +260,19 @@ class SO101Arm(RobotArm):
         except TypeError:
             pass
 
-        # 3. Register only (fallback)
+        # 3. Named ``motor`` argument (keyword-only APIs)
+        try:
+            return self._bus.read(register, motor=motor_names)
+        except TypeError:
+            pass
+
+        # 4. Fully named arguments (strict keyword-only APIs)
+        try:
+            return self._bus.read(data_name=register, motor=motor_names)
+        except TypeError:
+            pass
+
+        # 5. Register only (fallback)
         return self._bus.read(register)
 
     def _try_bus_write(self, register: str, goal: Any, motor_names: list[str]) -> None:
@@ -279,7 +291,21 @@ class SO101Arm(RobotArm):
         except TypeError:
             pass
 
-        # 3. Register + goal only (fallback)
+        # 3. Named ``motor`` argument (keyword-only APIs)
+        try:
+            self._bus.write(register, goal, motor=motor_names)
+            return
+        except TypeError:
+            pass
+
+        # 4. Fully named arguments (strict keyword-only APIs)
+        try:
+            self._bus.write(data_name=register, values=goal, motor=motor_names)
+            return
+        except TypeError:
+            pass
+
+        # 5. Register + goal only (fallback)
         self._bus.write(register, goal)
 
     def _read_register(self, register: str) -> list[float]:
