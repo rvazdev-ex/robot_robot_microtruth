@@ -1,4 +1,4 @@
-from trust_before_touch.constants import AttackMode
+from trust_before_touch.constants import AttackMode, ChallengeType
 from trust_before_touch.models.protocol import Challenge
 from trust_before_touch.simulation.engine import SimulationEngine
 
@@ -6,7 +6,7 @@ from trust_before_touch.simulation.engine import SimulationEngine
 def _challenge() -> Challenge:
     return Challenge(
         challenge_id="c1",
-        challenge_type="tap_rhythm",
+        challenge_type=ChallengeType.TAP_RHYTHM,
         trajectory_points=[0.1, 0.2, -0.1, 0.3, 0.0],
         expected_duration_ms=1000,
         expected_pose="forward",

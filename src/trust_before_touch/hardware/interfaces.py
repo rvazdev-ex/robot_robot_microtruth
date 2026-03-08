@@ -13,7 +13,6 @@ from trust_before_touch.constants import ChallengeType
 from trust_before_touch.models.protocol import Challenge, TelemetrySnapshot
 from trust_before_touch.models.robot import ArmTelemetry, CameraFrame, JointState
 
-
 # ---------------------------------------------------------------------------
 # Real-time robot arm interface
 # ---------------------------------------------------------------------------

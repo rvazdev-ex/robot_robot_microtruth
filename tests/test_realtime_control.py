@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import time
-
-import pytest
 
 from trust_before_touch.config import AppConfig
 from trust_before_touch.constants import ControlMode, RuntimeBackend
 from trust_before_touch.control.loop import RealtimeControlLoop
 from trust_before_touch.hardware.factory import create_realtime_hardware
 from trust_before_touch.hardware.simulated import SimRobotArm, SimRobotCamera
-from trust_before_touch.models.robot import NUM_JOINTS, RobotState, SO101_JOINT_NAMES
+from trust_before_touch.models.robot import NUM_JOINTS, SO101_JOINT_NAMES, RobotState
 
 
 def test_sim_arm_connects_and_reads() -> None:
@@ -79,8 +76,7 @@ def test_create_realtime_hardware_single_follower() -> None:
     assert followers[0].name == "follower_left"
 
 
-@pytest.mark.asyncio
-async def test_control_loop_starts_and_stops() -> None:
+def test_control_loop_starts_and_stops() -> None:
     config = AppConfig()
     config.control_frequency_hz = 100.0  # fast for testing
     config.telemetry_frequency_hz = 50.0
@@ -95,16 +91,19 @@ async def test_control_loop_starts_and_stops() -> None:
 
     loop.on_telemetry(on_telemetry)
 
-    await loop.connect_all()
-    await loop.start(ControlMode.TELEOPERATION)
-    assert loop.is_running
+    async def _run() -> None:
+        await loop.connect_all()
+        await loop.start(ControlMode.TELEOPERATION)
+        assert loop.is_running
 
-    await asyncio.sleep(0.3)  # Let it run a few cycles
+        await asyncio.sleep(0.3)  # Let it run a few cycles
 
-    await loop.stop()
-    assert not loop.is_running
+        await loop.stop()
+        assert not loop.is_running
 
-    await loop.disconnect_all()
+        await loop.disconnect_all()
+
+    asyncio.run(_run())
 
     # Should have received some telemetry
     assert len(received_states) > 0
@@ -114,20 +113,23 @@ async def test_control_loop_starts_and_stops() -> None:
     assert state.follower_left is not None
 
 
-@pytest.mark.asyncio
-async def test_control_loop_recording_mode() -> None:
+def test_control_loop_recording_mode() -> None:
     config = AppConfig()
     config.control_frequency_hz = 100.0
     leader, followers, camera = create_realtime_hardware(config)
 
     loop = RealtimeControlLoop(config, leader, followers, camera)
-    await loop.connect_all()
-    await loop.start(ControlMode.RECORDING)
 
-    await asyncio.sleep(0.2)
+    async def _run() -> None:
+        await loop.connect_all()
+        await loop.start(ControlMode.RECORDING)
 
-    await loop.stop()
-    await loop.disconnect_all()
+        await asyncio.sleep(0.2)
+
+        await loop.stop()
+        await loop.disconnect_all()
+
+    asyncio.run(_run())
 
     rec = loop.recording
     assert rec is not None
@@ -135,8 +137,7 @@ async def test_control_loop_recording_mode() -> None:
     assert rec.duration_ms > 0
 
 
-@pytest.mark.asyncio
-async def test_safety_clamp() -> None:
+def test_safety_clamp() -> None:
     config = AppConfig()
     config.max_joint_delta_deg = 2.0
     leader, followers, camera = create_realtime_hardware(config)
