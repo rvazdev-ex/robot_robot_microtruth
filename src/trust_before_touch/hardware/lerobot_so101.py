@@ -241,19 +241,53 @@ class SO101Arm(RobotArm):
     def _motor_names(self) -> list[str]:
         return list(self._motors.values())
 
+    def _try_bus_read(self, register: str, motor_names: list[str]) -> Any:
+        """Call bus.read with compatible calling convention.
+
+        Decorator wrappers on the bus can hide the real signature, so we
+        try the three known calling conventions in order instead of relying
+        on signature inspection.
+        """
+        # 1. Unpacked motor names (newer LeRobot APIs with *motor_names)
+        try:
+            return self._bus.read(register, *motor_names)
+        except TypeError:
+            pass
+
+        # 2. Motor names as a list (older LeRobot APIs)
+        try:
+            return self._bus.read(register, motor_names)
+        except TypeError:
+            pass
+
+        # 3. Register only (fallback)
+        return self._bus.read(register)
+
+    def _try_bus_write(self, register: str, goal: Any, motor_names: list[str]) -> None:
+        """Call bus.write with compatible calling convention."""
+        # 1. Unpacked motor names
+        try:
+            self._bus.write(register, goal, *motor_names)
+            return
+        except TypeError:
+            pass
+
+        # 2. Motor names as a list
+        try:
+            self._bus.write(register, goal, motor_names)
+            return
+        except TypeError:
+            pass
+
+        # 3. Register + goal only (fallback)
+        self._bus.write(register, goal)
+
     def _read_register(self, register: str) -> list[float]:
         if self._bus is None:
             return []
 
         motor_names = self._motor_names()
-        read_signature = inspect.signature(self._bus.read)
-        read_parameters = list(read_signature.parameters.values())
-        if len(read_parameters) <= 1:
-            raw_values = self._bus.read(register)
-        elif any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in read_parameters[1:]):
-            raw_values = self._bus.read(register, *motor_names)
-        else:
-            raw_values = self._bus.read(register, motor_names)
+        raw_values = self._try_bus_read(register, motor_names)
 
         if isinstance(raw_values, dict):
             return [float(raw_values[name]) for name in motor_names if name in raw_values]
@@ -271,15 +305,7 @@ class SO101Arm(RobotArm):
 
         motor_names = self._motor_names()
         goal = np.array(values, dtype=np.float32)
-        write_signature = inspect.signature(self._bus.write)
-        write_parameters = list(write_signature.parameters.values())
-        if len(write_parameters) <= 2:
-            self._bus.write(register, goal)
-            return
-        if any(p.kind is inspect.Parameter.VAR_POSITIONAL for p in write_parameters[2:]):
-            self._bus.write(register, goal, *motor_names)
-            return
-        self._bus.write(register, goal, motor_names)
+        self._try_bus_write(register, goal, motor_names)
 
     def read_joints(self) -> JointState:
         if not self._connected or self._bus is None:
