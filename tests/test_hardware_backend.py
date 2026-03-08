@@ -1,3 +1,4 @@
+from _pytest.monkeypatch import MonkeyPatch
 from fastapi.testclient import TestClient
 
 from trust_before_touch.api.app import create_app
@@ -31,7 +32,7 @@ def test_realtime_factory_returns_sim_arms() -> None:
     assert camera.__class__.__name__ == "SimRobotCamera"
 
 
-def test_api_returns_503_when_lerobot_runtime_is_unavailable(monkeypatch) -> None:
+def test_api_returns_503_when_lerobot_runtime_is_unavailable(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("TBT_RUNTIME_BACKEND", "lerobot")
     client = TestClient(create_app())
     session = client.post("/sessions", json={"attack_mode": "normal"}).json()

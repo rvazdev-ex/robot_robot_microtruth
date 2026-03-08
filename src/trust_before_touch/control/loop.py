@@ -11,7 +11,8 @@ import asyncio
 import logging
 import time
 from collections import deque
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from trust_before_touch.config import AppConfig
 from trust_before_touch.constants import ControlMode
@@ -19,7 +20,6 @@ from trust_before_touch.hardware.interfaces import RobotArm, RobotCamera
 from trust_before_touch.models.robot import (
     ArmTelemetry,
     CameraFrame,
-    JointState,
     RobotState,
     TrajectoryPoint,
     TrajectoryRecording,
@@ -118,7 +118,11 @@ class RealtimeControlLoop:
         if mode == ControlMode.RECORDING:
             self._recording = TrajectoryRecording(start_time=time.time())
         self._task = asyncio.create_task(self._run_loop())
-        logger.info("Control loop started in %s mode at %.1f Hz", mode, self.config.control_frequency_hz)
+        logger.info(
+            "Control loop started in %s mode at %.1f Hz",
+            mode,
+            self.config.control_frequency_hz,
+        )
 
     async def stop(self) -> None:
         """Stop the control loop gracefully."""
@@ -126,7 +130,7 @@ class RealtimeControlLoop:
         if self._task is not None:
             try:
                 await asyncio.wait_for(self._task, timeout=2.0)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
+            except (TimeoutError, asyncio.CancelledError):
                 self._task.cancel()
             self._task = None
         if self._recording is not None:
@@ -212,7 +216,7 @@ class RealtimeControlLoop:
         """Clamp position deltas to prevent dangerous fast movements."""
         current = follower.read_joints().positions
         clamped: list[float] = []
-        for t, c in zip(target, current):
+        for t, c in zip(target, current, strict=False):
             delta = t - c
             if abs(delta) > self._max_delta:
                 delta = self._max_delta if delta > 0 else -self._max_delta

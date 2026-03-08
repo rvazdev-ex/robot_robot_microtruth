@@ -238,7 +238,8 @@ def test_so101_arm_write_joints_with_varargs_motors_api(
 
         def write(self, register: str, values: object, *motor: str) -> None:
             self.register = register
-            self.goal = [float(v) for v in values.tolist()]
+            values_list = values if isinstance(values, FakeArray) else FakeArray([])
+            self.goal = [float(v) for v in values_list.tolist()]
             self.motors = motor
 
     arm = SO101Arm("leader", "/dev/null", motors={1: "joint_a", 2: "joint_b"})
@@ -279,7 +280,8 @@ def test_so101_arm_write_joints_with_named_motors_api(
 
         def write(self, register: str, values: object, motor: list[str]) -> None:
             self.register = register
-            self.goal = [float(v) for v in values.tolist()]
+            values_list = values if isinstance(values, FakeArray) else FakeArray([])
+            self.goal = [float(v) for v in values_list.tolist()]
             self.motors = motor
 
     arm = SO101Arm("leader", "/dev/null", motors={1: "joint_a", 2: "joint_b"})

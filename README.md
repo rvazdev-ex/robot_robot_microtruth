@@ -1,90 +1,117 @@
-# trust-before-touch-so101
+# 🤖 Trust Before Touch (SO-101)
 
-Real-time robot manipulation and control for a 3-arm SO-101 setup with LeRobot integration and physical challenge-response (PCS) verification.
+> **Simulation-first real-time teleoperation + physical challenge-response trust verification** for SO-101 robotic arms.
 
-## Overview
+[![Python](https://img.shields.io/badge/python-3.12+-3776AB?logo=python&logoColor=white)](#)
+[![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white)](#)
+[![Lint: Ruff](https://img.shields.io/badge/lint-ruff-46a758)](#development)
+[![Type check: mypy](https://img.shields.io/badge/types-mypy-2f5d95)](#development)
+[![Tests: pytest](https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest&logoColor=white)](#development)
 
-This project provides **real-time leader-follower teleoperation** for SO-101 robotic arms via LeRobot, with an integrated trust verification layer. The leader arm drives one or two follower arms at configurable control frequencies (default 30 Hz), with live 6-DOF joint streaming via WebSocket.
+---
 
-### Key capabilities
+## ✨ What this project does
 
-- **Real-time teleoperation**: Read leader arm joints and mirror to follower arm(s) at 30 Hz
-- **Live telemetry dashboard**: 6-DOF joint visualization for all 3 arms via WebSocket
-- **Trajectory recording**: Record leader-follower trajectories for replay and training
-- **Safety clamping**: Configurable max joint velocity to prevent dangerous movements
-- **PCS verification**: Physical challenge-response protocol for trust scoring
-- **Dual backend**: Simulation mode for development, LeRobot mode for real hardware
+`trust-before-touch-so101` provides a complete stack for **leader–follower robot control** and **trust scoring**:
 
-## Architecture
+- Real-time teleoperation loop (default 30 Hz)
+- Live telemetry over WebSocket for dashboard visualization
+- Trajectory recording for replay and analysis
+- Safety clamping on per-step joint movement
+- PCS-style challenge/execute/verify trust sessions
+- Dual runtime backends:
+  - **Simulation** (default, deterministic development)
+  - **LeRobot hardware** (SO-101 + camera)
 
+---
+
+## 🧠 System architecture
+
+```text
+Leader Arm (SO-101) ──read joints──▶ Realtime Control Loop ──write joints──▶ Follower Arm(s)
+                                          │
+                                          ├── Telemetry State ──▶ WS /ws/telemetry ──▶ Dashboard
+                                          │
+                                          └── PCS Session Engine ──▶ Trust Score
 ```
-Leader Arm (SO-101)  ──read joints──▶  Control Loop (30 Hz)  ──write joints──▶  Follower Arms
-                                            │
-                                       telemetry (10 Hz)
-                                            │
-                                     WebSocket /ws/telemetry ──▶  Dashboard (6-DOF viz)
-                                            │
-                                     PCS Verification Layer ──▶  Trust Scoring
-```
 
-- **Control loop**: Async real-time loop reading leader, commanding followers, pushing telemetry
-- **Hardware layer**: `RobotArm` / `RobotCamera` protocols with LeRobot + simulation backends
-- **FastAPI backend**: REST + WebSocket for control, telemetry streaming, and PCS sessions
-- **Dashboard**: Real-time 6-DOF joint bar visualization at `/`
+### Main modules
 
-## Installation
+- `src/trust_before_touch/control` — realtime control loop
+- `src/trust_before_touch/hardware` — hardware interfaces + simulation/LeRobot adapters
+- `src/trust_before_touch/protocol` — session/challenge orchestration
+- `src/trust_before_touch/scoring` — trust score computation
+- `src/trust_before_touch/api` — FastAPI app + WebSocket + dashboard route
+- `src/trust_before_touch/cli` — Typer CLI commands
+
+---
+
+## ✅ Requirements
+
+- **Python 3.12+**
+- Optional: LeRobot-compatible SO-101 hardware and camera for physical runs
+
+---
+
+## 📦 Installation
 
 ```bash
-# Core (simulation mode)
+# core (simulation-first)
 pip install -e .[dev]
 
-# With LeRobot hardware support
+# with LeRobot extras
 pip install -e .[dev,lerobot]
 ```
 
-## Quick start
+---
 
-### Simulation mode
+## 🚀 Quick start
+
+### 1) Simulation mode (recommended)
+
 ```bash
-# Start the dashboard + API server
 make dev
+```
 
-# Or run teleoperation in the terminal (simulated)
+Then open: <http://localhost:8000>
+
+You can also run teleoperation in terminal:
+
+```bash
 make teleoperate-sim
 ```
 
-### Real hardware (LeRobot)
+### 2) Hardware mode (LeRobot)
+
 ```bash
-# Set the backend to lerobot
 export TBT_RUNTIME_BACKEND=lerobot
-
-# Start teleoperation
 make teleoperate
+```
 
-# Or read current joint positions
+Other useful commands:
+
+```bash
 make read-joints
-
-# Or start the dashboard
 make dev
 ```
 
-Open http://localhost:8000 for the real-time dashboard.
+---
 
-## CLI commands
+## 🖥️ CLI usage
 
-### Real-time control
 ```bash
-# Leader-follower teleoperation (Ctrl+C to stop)
+# Teleoperate (Ctrl+C to stop)
 trust-before-touch teleoperate --backend lerobot
 
-# Record a 10-second trajectory
+# Record trajectory for N seconds
 trust-before-touch record --backend lerobot --duration 10
 
-# Read current joint positions from all arms
+# Read current joints
 trust-before-touch read-joints --backend lerobot
 ```
 
-### PCS verification
+### PCS demo commands
+
 ```bash
 trust-before-touch run-demo --mode normal --backend lerobot
 trust-before-touch run-demo --mode replay
@@ -93,73 +120,116 @@ trust-before-touch run-training-watermark-demo
 trust-before-touch run-cross-camera-watermark-demo
 ```
 
-## API endpoints
+---
 
-### Real-time control
-- `POST /control/start?mode=teleoperation` — Connect hardware, start control loop
-- `POST /control/stop` — Stop control loop, disconnect hardware
-- `GET /control/state` — Latest aggregated robot state (all arms + camera)
-- `GET /control/recording` — Current trajectory recording stats
-- `WS /ws/telemetry` — Real-time joint telemetry stream
+## 🌐 API reference
+
+### Health and config
+
+- `GET /health` — service health
+- `GET /config` — active runtime configuration
+- `GET /` — dashboard UI
+
+### Realtime control
+
+- `POST /control/start?mode=teleoperation`
+- `POST /control/stop`
+- `GET /control/state`
+- `GET /control/recording`
+- `WS /ws/telemetry`
 
 ### PCS sessions
-- `POST /sessions` — Create verification session
-- `POST /sessions/{id}/claim` — Prover claims readiness
-- `POST /sessions/{id}/challenge` — Leader issues challenge
-- `POST /sessions/{id}/execute` — Prover executes
-- `POST /sessions/{id}/verify` — Verifier scores
-- `GET /sessions/{id}/score` — Get trust score
 
-### General
-- `GET /health` — Health check
-- `GET /config` — Current configuration
-- `GET /` — Real-time dashboard
+- `POST /sessions`
+- `POST /sessions/{id}/claim`
+- `POST /sessions/{id}/challenge`
+- `POST /sessions/{id}/execute`
+- `POST /sessions/{id}/verify`
+- `GET /sessions/{id}/score`
 
-## Configuration
+---
 
-All settings are configurable via environment variables (prefix `TBT_`):
+## ⚙️ Configuration
+
+All env vars are prefixed with `TBT_`.
 
 ```bash
-# Runtime backend
-TBT_RUNTIME_BACKEND=lerobot          # "simulation" or "lerobot"
+# Runtime
+TBT_RUNTIME_BACKEND=simulation   # simulation | lerobot
 
-# Control parameters
-TBT_CONTROL_FREQUENCY_HZ=30.0       # Control loop frequency
-TBT_TELEMETRY_FREQUENCY_HZ=10.0     # WebSocket push rate
-TBT_MAX_JOINT_DELTA_DEG=5.0         # Safety: max degrees per step
+# Loop rates
+TBT_CONTROL_FREQUENCY_HZ=30.0
+TBT_TELEMETRY_FREQUENCY_HZ=10.0
 
-# LeRobot hardware ports
+# Safety
+TBT_MAX_JOINT_DELTA_DEG=5.0
+
+# Hardware ports (LeRobot)
 TBT_LEROBOT_LEADER_ARM_PORT=/dev/ttyACM1
 TBT_LEROBOT_FOLLOWER_WITH_CAMERA_PORT=/dev/ttyACM0
 TBT_LEROBOT_FOLLOWER_WITHOUT_CAMERA_PORT=/dev/ttyACM2
 TBT_LEROBOT_CAMERA_DEVICE=/dev/video2
 TBT_LEROBOT_MOTOR_MODEL=sts3215
 
-# Enable/disable follower arms
+# Followers
 TBT_ENABLE_FOLLOWER_LEFT=true
 TBT_ENABLE_FOLLOWER_RIGHT=true
 ```
 
-## Hardware setup
+Default config file: `configs/default.toml`
 
-The system expects 3 SO-101 arms with Feetech STS3215 servos, already calibrated via LeRobot:
+---
 
-| Arm | Default Port | Role |
-|-----|-------------|------|
-| Leader | `/dev/ttyACM1` | Reads joint positions (human-controlled) |
-| Follower Left | `/dev/ttyACM0` | Mirrors leader + has camera |
-| Follower Right | `/dev/ttyACM2` | Mirrors leader (no camera) |
-| Camera | `/dev/video2` | Mounted on follower left |
+## 🦾 Hardware layout (expected)
 
-Each arm has 6 joints: `shoulder_pan`, `shoulder_lift`, `elbow_flex`, `wrist_flex`, `wrist_roll`, `gripper`.
+| Component | Default device | Role |
+|---|---|---|
+| Leader arm | `/dev/ttyACM1` | Human-driven source joints |
+| Follower left | `/dev/ttyACM0` | Mirror + camera host |
+| Follower right | `/dev/ttyACM2` | Mirror |
+| Camera | `/dev/video2` | Scene observation |
 
-## Development
+SO-101 joint order:
+
+1. `shoulder_pan`
+2. `shoulder_lift`
+3. `elbow_flex`
+4. `wrist_flex`
+5. `wrist_roll`
+6. `gripper`
+
+---
+
+## 🧪 Development
 
 ```bash
-make install        # Install with dev deps
-make test           # Run pytest
-make lint           # Run ruff
-make typecheck      # Run mypy
-make format         # Auto-format
-make dev            # Start dev server with hot reload
+make install      # install with dev deps
+make format       # ruff format
+make lint         # ruff check
+make typecheck    # mypy
+make test         # pytest
 ```
+
+Suggested pre-merge check:
+
+```bash
+make format && make lint && make typecheck && make test
+```
+
+---
+
+## 📚 Documentation
+
+See `docs/` for deeper technical references:
+
+- `docs/architecture.md`
+- `docs/hardware-integration.md`
+- `docs/protocol.md`
+- `docs/threat-model.md`
+- `docs/demo-runbook.md`
+
+---
+
+## 📄 License
+
+MIT — see `LICENSE`.

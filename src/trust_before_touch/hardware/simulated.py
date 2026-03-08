@@ -29,7 +29,6 @@ from trust_before_touch.models.robot import (
 from trust_before_touch.protocol.challenges import ChallengeGenerator
 from trust_before_touch.simulation.engine import SimulationEngine
 
-
 # ---------------------------------------------------------------------------
 # Simulated real-time arm
 # ---------------------------------------------------------------------------
@@ -81,7 +80,7 @@ class SimRobotArm(RobotArm):
     def write_joints(self, positions: list[float]) -> None:
         old = self._positions
         self._velocities = [
-            (p - o) * 30.0 for p, o in zip(positions, old)
+            (p - o) * 30.0 for p, o in zip(positions, old, strict=False)
         ]  # approx velocity at 30Hz
         self._positions = list(positions)
 

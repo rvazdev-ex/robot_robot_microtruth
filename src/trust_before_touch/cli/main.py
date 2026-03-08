@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import signal
-import sys
 import time
 
 import typer
@@ -48,7 +47,10 @@ def teleoperate(
     manager = SessionManager(config)
 
     async def _run() -> None:
-        typer.echo(f"Starting teleoperation ({config.runtime_backend}) at {config.control_frequency_hz} Hz")
+        typer.echo(
+            "Starting teleoperation "
+            f"({config.runtime_backend}) at {config.control_frequency_hz} Hz"
+        )
         typer.echo("Press Ctrl+C to stop\n")
 
         await manager.start_control(ControlMode.TELEOPERATION)
@@ -65,7 +67,7 @@ def teleoperate(
                 if state.leader and state.leader.joint_state:
                     joints = state.leader.joint_state.positions
                     names = SO101_JOINT_NAMES[: len(joints)]
-                    parts = [f"{n}={v:+7.1f}" for n, v in zip(names, joints)]
+                    parts = [f"{n}={v:+7.1f}" for n, v in zip(names, joints, strict=False)]
                     dt_str = f"dt={state.loop_dt_ms:.1f}ms"
                     typer.echo(f"\r  Leader: {' '.join(parts)}  [{dt_str}]", nl=False)
                 await asyncio.sleep(0.1)
@@ -96,9 +98,7 @@ def record(
         await asyncio.sleep(duration)
         state = await manager.stop_control()
 
-        loop = manager.control_loop  # already stopped, get recording from before stop
-        # Recording was captured in the loop before stop
-        typer.echo(f"Recording complete.")
+        typer.echo("Recording complete.")
         if state:
             typer.echo(state.model_dump_json(indent=2))
 
@@ -126,13 +126,13 @@ def read_joints(
         typer.echo("--- Joint Positions ---\n")
         leader_js = leader.read_joints()
         typer.echo(f"Leader ({leader.name}):")
-        for name, pos in zip(SO101_JOINT_NAMES, leader_js.positions):
+        for name, pos in zip(SO101_JOINT_NAMES, leader_js.positions, strict=False):
             typer.echo(f"  {name:20s}: {pos:+8.2f} deg")
 
         for f in followers:
             typer.echo(f"\nFollower ({f.name}):")
             fjs = f.read_joints()
-            for name, pos in zip(SO101_JOINT_NAMES, fjs.positions):
+            for name, pos in zip(SO101_JOINT_NAMES, fjs.positions, strict=False):
                 typer.echo(f"  {name:20s}: {pos:+8.2f} deg")
     finally:
         leader.disconnect()

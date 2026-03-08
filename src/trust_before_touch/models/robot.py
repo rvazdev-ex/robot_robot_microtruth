@@ -7,7 +7,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # SO-101 has 6 joints: shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper
 SO101_JOINT_NAMES = [
     "shoulder_pan",
@@ -30,7 +29,7 @@ class JointState(BaseModel):
 
     @property
     def as_dict(self) -> dict[str, float]:
-        return dict(zip(SO101_JOINT_NAMES, self.positions))
+        return dict(zip(SO101_JOINT_NAMES, self.positions, strict=False))
 
 
 class ArmTelemetry(BaseModel):
@@ -111,6 +110,6 @@ class TrajectoryRecording(BaseModel):
             return 0.0
         total = 0.0
         for pt in self.points:
-            for lp, fp in zip(pt.leader_positions, pt.follower_positions):
+            for lp, fp in zip(pt.leader_positions, pt.follower_positions, strict=False):
                 total += abs(lp - fp)
         return total / (len(self.points) * NUM_JOINTS)
